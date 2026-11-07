@@ -7,5 +7,5 @@ webpack({mode:'production',target:'webworker',entry:{'physics-worker':path.join(
  fs.writeFileSync(path.join(root,'dist/index.js'),`/* 星图: MIT; D3 ISC. See licenses/. */\n${config}\n${factory}\n${read('src/index.cjs')}`);
  for(const file of ['plugin.json','README.md','LICENSE','icon.png','preview.png'])if(fs.existsSync(path.join(root,file)))fs.copyFileSync(path.join(root,file),path.join(root,'dist',file));
  for(const dir of ['i18n','licenses','docs'])fs.cpSync(path.join(root,dir),path.join(root,'dist',dir),{recursive:true});
- console.log('Built 星图 0.1.0');
+ console.log('Built 星图 '+JSON.parse(read('package.json')).version);
 });

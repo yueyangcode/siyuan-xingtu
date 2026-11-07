@@ -18,7 +18,7 @@ module.exports=class Xingtu extends Plugin {
   for(const text of ['沿用你熟悉的全局与局部关系图入口，保留深色背景、灰色节点、紫色焦点、完整标题和平滑缩放。','打开图谱后，右上角的调节按钮可设置物理布局、标签显示和孤立节点；参数自动保存。左下角 Animate 可播放生长动画。','生长动画根据创建时间和当前引用关系重建，并非真实历史快照。','停用星图会恢复原生图谱。升级迁移时保留旧片段备份，但请勿同时启用。']){const p=document.createElement('p');p.textContent=text;root.append(p);}
   const status=document.createElement('p');status.textContent=this.blocked?'状态：等待停用旧片段':this.warned?'状态：当前图谱不兼容，使用原生效果':`状态：已启用，已接入 ${this.runtime?.patches.size||0} 个图谱`;root.append(status);
   const button=document.createElement('button');button.className='b3-button b3-button--outline';button.textContent='打开 / 收起全局图谱';button.onclick=()=>{this.setting.close();this.openGraph();};root.append(button);
-  this.setting=new Setting({width:'620px'});this.setting.addItem({title:'',actionElement:root});this.setting.open(this.displayName);
+  this.setting=new Setting({width:'620px'});this.setting.addItem({title:'',direction:'row',actionElement:root});this.setting.open(this.displayName);
  }
  onunload(){this.disposed=true;if(this.saveTimer)this.flush();this.setting?.close();this.runtime?.dispose();this.runtime=null;}
 };

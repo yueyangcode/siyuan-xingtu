@@ -1,1 +1,34 @@
-{"name":"siyuan-xingtu","author":"yueyangcode","url":"https://github.com/yueyangcode/siyuan-xingtu","version":"0.1.0","minAppVersion":"3.8.7","backends":["all"],"frontends":["desktop","desktop-window","browser-desktop"],"disabledInPublish":true,"displayName":{"default":"星图","zh-CN":"星图"},"description":{"default":"保留原生图谱入口，提供清晰标签、平滑交互、物理布局和图谱生长动画。"},"readme":{"default":"README.md"},"keywords":["图谱","星图","关系","graph"],"icon":"icon.png","preview":"preview.png"}
+{
+  "name": "siyuan-xingtu",
+  "author": "yueyangcode",
+  "url": "https://github.com/yueyangcode/siyuan-xingtu",
+  "version": "0.1.1",
+  "minAppVersion": "3.8.7",
+  "backends": [
+    "all"
+  ],
+  "frontends": [
+    "desktop",
+    "desktop-window",
+    "browser-desktop"
+  ],
+  "disabledInPublish": true,
+  "displayName": {
+    "default": "星图",
+    "zh-CN": "星图"
+  },
+  "description": {
+    "default": "保留原生图谱入口，提供清晰标签、平滑交互、物理布局和图谱生长动画。"
+  },
+  "readme": {
+    "default": "README.md"
+  },
+  "keywords": [
+    "图谱",
+    "星图",
+    "关系",
+    "graph"
+  ],
+  "icon": "icon.png",
+  "preview": "preview.png"
+}
