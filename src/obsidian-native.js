@@ -1,8 +1,10 @@
-/* SiYuan 3.8.5: presentation-only patch for the built-in global and local graphs. */
+/* SiYuan 3.8.x: built-in graph visuals and one-time empty global graph recovery. */
 (() => {
   const KEY = '__xingtuGraph';
   window[KEY]?.dispose();
   const patches = new Map();
+  const checkedGlobalGraphs = new WeakSet();
+  const graphRecoveryTimers = new Set();
   const style = document.createElement('style');
   style.textContent = `:is(.sy__globalGraph,.sy__graph) .graph__svg {background:#101010!important}
     :is(.sy__globalGraph,.sy__graph) .graph__tooltip {display:none!important}
@@ -337,6 +339,18 @@
       for(const key of ['globalGraph','graph']) {
         const graph = layout[name]?.data?.[key];
         if(['global','local','pin'].includes(graph?.type))attach(graph.graphEngine);
+        if(key==='globalGraph' && graph?.type==='global' && !checkedGlobalGraphs.has(graph)) {
+          checkedGlobalGraphs.add(graph);
+          const timer=setTimeout(()=>{
+            graphRecoveryTimers.delete(timer);
+            if(graph.element?.isConnected && graph.element.getBoundingClientRect().width > 0 &&
+              !graph.graphData?.nodes?.length && !graph.graphEngine?.data?.nodes?.length &&
+              !graph.settingsSavingSuspended && typeof graph.searchGraph==='function') {
+              graph.searchGraph({refresh:false,resetLayout:true});
+            }
+          },1200);
+          graphRecoveryTimers.add(timer);
+        }
       }
     }
   }
@@ -346,6 +360,6 @@
       (n.matches?.('.sy__globalGraph,.sy__graph,.graph__canvas') || n.querySelector?.('.sy__globalGraph,.sy__graph,.graph__canvas')))))scan();
   });
   observer.observe(document.body,{childList:true,subtree:true});
-  window[KEY] = {patches, scan, dispose(){window.removeEventListener('resize',watchDpi);dpiQuery?.removeEventListener('change',watchDpi);observer.disconnect();patches.forEach(p=>p.dispose());patches.clear();style.remove();delete window[KEY];}};
+  window[KEY] = {patches, scan, dispose(){window.removeEventListener('resize',watchDpi);dpiQuery?.removeEventListener('change',watchDpi);observer.disconnect();graphRecoveryTimers.forEach(clearTimeout);graphRecoveryTimers.clear();patches.forEach(p=>p.dispose());patches.clear();style.remove();delete window[KEY];}};
   scan();
 })();
