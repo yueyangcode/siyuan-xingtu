@@ -54,8 +54,12 @@ onmessage=({data:m})=>{
 
   sim?.stop();sim=forceSimulation(nodes).stop();configure();
   const fresh=!nodes.some(n=>previous.has(n.id));
-  if(fresh){sim.alpha(.8);sim.tick(150);
-   nodes.forEach(n=>{n.vx*=.2;n.vy*=.2;});sim.alpha(.08*intensity());}
+  if(fresh){
+   sim.alpha(.8);
+   const deadline=performance.now()+40;let ticks=0;
+   do{sim.tick();ticks++;}while(ticks<150 && performance.now()<deadline);
+   if(ticks===150){nodes.forEach(n=>{n.vx*=.2;n.vy*=.2;});sim.alpha(.08*intensity());}
+  }
 
   sim.on('tick',()=>{
    const slow=!held.size && sim.alpha()<.04 && nodes.every(n=>Math.hypot(n.vx,n.vy)<.12);
@@ -72,6 +76,10 @@ onmessage=({data:m})=>{
  }else if(m.type==='release'){
   const n=nodes[m.index];if(n){n.fx=null;n.fy=null;}held.delete(m.index);wake(.3*intensity());
   postMessage({type:'released',generation,index:m.index,token:m.token});
+ }else if(m.type==='labels'){
+  if(m.widths.length!==nodes.length)return;
+  nodes.forEach((n,i)=>{n.labelHalf=Math.max(n.radius||24,((m.widths[i]||0)+20)/.5/2);});
+  signature='';wake(.04*intensity());
  }else if(m.type==='configure'){settings=m.settings;configure();wake(.3*intensity());}
  else if(m.type==='pause'||m.type==='stop'){paused=true;sim.stop();}
  else if(m.type==='resume'){paused=false;if(sim.alpha()>=sim.alphaMin())sim.restart();else emit(true);}

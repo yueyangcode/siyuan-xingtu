@@ -21,31 +21,48 @@ function attachPhysics(engine){
   }
   engine.__ogResetReference=true;
  }
+ function refreshTitles(){
+  if(disposed||engine.destroyed)return;
+  let changed=false;
+  for(const n of engine.data.nodes){const title=titles.get(n.id);if(title && n.label!==title){n.label=title;changed=true;}}
+  if(changed){
+   engine.geometryVersion++;engine.scheduleRender();
+   if(worker&&engine.layoutWorker===worker){
+    const measure=engine.labelCanvas.getContext('2d');measure.font='12px system-ui, sans-serif';
+    worker.postMessage({type:'labels',generation:engine.generation,widths:engine.data.nodes.map(n=>measure.measureText(n.label||'').width)});
+   }
+  }
+  const missing=engine.data.nodes.filter(n=>['d','NodeDocument'].includes(n.type) && /(?:\.{3}|…)$/.test(n.label||'') && /^\d{14}-[a-z0-9]{7}$/.test(n.id) && !titles.has(n.id));
+  if(loadingTitles||!missing.length)return;
+  for(const n of missing)titleSources.set(n.id,n.label);
+  loadingTitles=true;
+  (async()=>{
+   try{
+    for(let offset=0;offset<missing.length;offset+=128){
+     const ids=missing.slice(offset,offset+128).map(n=>`'${n.id}'`).join(',');
+     const response=await fetch('/api/query/sql',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.any([titleAbort.signal,AbortSignal.timeout(15000)]),body:JSON.stringify({stmt:`SELECT id,content FROM blocks WHERE type='d' AND id IN (${ids}) LIMIT 128`})});
+     const result=await response.json();if(!response.ok||result.code!==0)throw Error('title lookup');
+     for(const row of result.data||[])if(typeof row.content==='string')titles.set(row.id,row.content);
+    }
+   }catch{if(!disposed)ui.querySelector('small').textContent='完整标题读取失败，暂用原生图谱名称';}
+   finally{
+    for(const n of missing)if(!titles.has(n.id))titles.set(n.id,n.label);
+    loadingTitles=false;
+    if(!disposed&&!engine.destroyed){
+     const ids=new Set(engine.data.nodes.map(n=>n.id));
+     for(const map of [titles,titleSources])for(const id of map.keys())if(!ids.has(id))map.delete(id);
+     refreshTitles();
+    }
+   }
+  })();
+ }
  function start(){
   if(disposed||engine.destroyed)return;
   engine.__ogPhysicsEnabled=config.enabled;
   if(!config.enabled){preparing=false;engine.__ogPreparing=false;engine.baseCanvas.style.opacity='';engine.labelCanvas.style.opacity='';release();engine.stopLayout();engine.autoFitPending=false;engine.__ogPhysicsSettled=true;engine.scheduleRender();return;}
-  if(!engine.data?.nodes.length){release();return;}
-  const missing=engine.data.nodes.filter(n=>['d','NodeDocument'].includes(n.type) && /(?:\.{3}|…)$/.test(n.label||'') && /^\d{14}-[a-z0-9]{7}$/.test(n.id) && !titles.has(n.id));
-  if(loadingTitles)return;
-  if(missing.length){
-   for(const n of missing)titleSources.set(n.id,n.label);
-   loadingTitles=true;preparing=true;engine.__ogPreparing=true;engine.baseCanvas.style.opacity='0';engine.labelCanvas.style.opacity='0';release();
-   (async()=>{
-    try{
-     for(let offset=0;offset<missing.length;offset+=128){
-      const ids=missing.slice(offset,offset+128).map(n=>`'${n.id}'`).join(',');
-      const response=await fetch('/api/query/sql',{method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.any([titleAbort.signal,AbortSignal.timeout(15000)]),body:JSON.stringify({stmt:`SELECT id,content FROM blocks WHERE type='d' AND id IN (${ids}) LIMIT 128`})});
-      const result=await response.json();if(!response.ok||result.code!==0)throw Error('title lookup');
-      for(const row of result.data||[])if(typeof row.content==='string')titles.set(row.id,row.content);
-     }
-    }catch{if(!disposed)ui.querySelector('small').textContent='完整标题读取失败，暂用原生图谱名称';}
-    finally{for(const n of missing)if(!titles.has(n.id))titles.set(n.id,n.label);loadingTitles=false;if(!disposed&&!engine.destroyed)start();}
-   })();return;
-  }
-  let changed=false;
-  for(const n of engine.data.nodes){const title=titles.get(n.id);if(title && n.label!==title){n.label=title;changed=true;}}
-  if(changed)engine.geometryVersion++;
+  if(!engine.data?.nodes.length){preparing=false;engine.__ogPreparing=false;engine.baseCanvas.style.opacity='';engine.labelCanvas.style.opacity='';release();return;}
+  // Metadata must never block the first frame or restart the layout.
+  refreshTitles();
 
   if(!worker||engine.layoutWorker!==worker){
    release();engine.stopLayout();url=URL.createObjectURL(new Blob([PHYSICS_WORKER],{type:'text/javascript'}));

@@ -2,5 +2,15 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),{Worker}=
 function worker(name){const source=fs.readFileSync(path.join(__dirname,'../dist/'+name+'-worker.js'),'utf8');return new Worker(`const {parentPort}=require('node:worker_threads');global.onmessage=null;global.postMessage=m=>parentPort.postMessage(m);parentPort.on('message',data=>global.onmessage({data}));${source}`,{eval:true});}
 function next(w,predicate=()=>true){return new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{clean();reject(Error('Worker timeout'));},12000);const message=m=>{if(predicate(m)){clean();resolve(m);}};const clean=()=>{clearTimeout(timeout);w.off('message',message);w.off('error',reject);};w.on('message',message);w.once('error',reject);});}
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
+test('large graph publishes first frame without waiting for 150 layout rounds',async()=>{
+ const w=worker('physics');try{
+  const nodes=Array.from({length:2000},(_,i)=>({id:'n'+i,degree:2,radius:30,labelWidth:100}));
+  const started=performance.now(),first=next(w,m=>m.type==='positions');
+  w.postMessage({type:'init',generation:1,nodes,links:nodes.slice(1).map((n,i)=>({source:'n'+i,target:n.id})),settings:defaults,paused:true});
+  const m=await first,ms=performance.now()-started;console.log('2000 node first frame ms:',Math.round(ms));
+  assert.ok(ms<1500,`First frame took ${ms} ms`);assert.ok(m.positions.every(Number.isFinite));
+  let count=0;w.on('message',()=>count++);w.postMessage({type:'labels',generation:1,widths:nodes.map(()=>300)});await wait(100);assert.equal(count,0);
+ }finally{await w.terminate();}
+});
 for(const size of [50,500,2000])test(`physics handles ${size} nodes and pause stops output`,async()=>{const w=worker('physics');try{const nodes=Array.from({length:size},(_,i)=>({id:'n'+i,degree:i?2:1,radius:30,labelWidth:100,x:i%50*40,y:Math.floor(i/50)*40}));const first=next(w,m=>m.type==='positions');w.postMessage({type:'init',generation:1,nodes,links:nodes.slice(1).map((n,i)=>({source:'n'+i,target:n.id})),settings:defaults,paused:true});const m=await first;assert.equal(m.positions.length,size*2);assert.ok(m.positions.every(Number.isFinite));let count=0;w.on('message',()=>count++);await wait(100);assert.equal(count,0);const released=next(w,m=>m.type==='released');w.postMessage({type:'pin',generation:1,index:0,x:100,y:200});w.postMessage({type:'release',generation:1,index:0,token:'t1'});assert.equal((await released).token,'t1');await wait(80);assert.equal(count,1);}finally{await w.terminate();}});
 test('timeline worker stays paused including pin and release',async()=>{const w=worker('timelapse');try{const first=next(w);w.postMessage({type:'init',generation:1,ids:['a','b'],links:[{source:'a',target:'b'}],options:{linkDistance:80},paused:true});assert.ok((await first).positions.every(Number.isFinite));let positions=0;w.on('message',m=>{if(m.positions)positions++;});w.postMessage({type:'pin',generation:1,index:0,x:20,y:30});w.postMessage({type:'release',generation:1,index:0,token:'done'});await wait(150);assert.equal(positions,0);}finally{await w.terminate();}});
